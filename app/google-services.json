@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "951019269468",
+    "project_id": "pocketnote-v2-0",
+    "storage_bucket": "pocketnote-v2-0.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:951019269468:android:6bb66d81fcbeeeb783e599",
+        "android_client_info": {
+          "package_name": "com.example.pocketnotev20"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDDN5zuc8RyIaPj1JZuF15BuYFfekQE5OQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

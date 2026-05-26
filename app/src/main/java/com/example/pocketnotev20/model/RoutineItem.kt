@@ -5,5 +5,10 @@ data class RoutineItem(
     val day: String = "",
     val level: String = "",
     val term: String = "",
-    val classes: List<String> = emptyList()
+    val section: String = "",
+    val classes: List<String> = emptyList(),
+    val uploadName: String = "",
+    val fileUrl: String = "",
+    val storagePath: String = "",
+    val fileType: String = ""
 )
