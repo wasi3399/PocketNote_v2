@@ -1,4 +1,4 @@
-package com.example.pocketnotev20.data.model
+package com.example.pocketnotev20.model
 
 data class NoteItem(
     val id: String = "",
