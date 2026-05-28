@@ -6,5 +6,9 @@ data class QuestionItem(
     val level: String = "",
     val term: String = "",
     val session: String = "",
-    val years: List<String> = emptyList()
+    val years: List<String> = emptyList(),
+    val uploadName: String = "",
+    val fileUrl: String = "",
+    val storagePath: String = "",
+    val fileType: String = ""
 )

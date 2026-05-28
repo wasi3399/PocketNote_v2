@@ -1,5 +1,9 @@
 package com.example.pocketnotev20.ui.questions
 
+import android.content.Context
+import android.content.Intent
+import android.net.Uri
+import android.widget.Toast
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Arrangement
@@ -29,14 +33,17 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.pocketnotev20.model.QuestionItem
+import com.example.pocketnotev20.repository.FirestoreRepository
 import com.example.pocketnotev20.ui.common.AppInfoStrip
 import com.example.pocketnotev20.ui.common.AppPanelCard
 import com.example.pocketnotev20.ui.common.AppPanelMuted
 import com.example.pocketnotev20.ui.common.AppSectionTitle
+import com.example.pocketnotev20.ui.common.AppSecondaryButton
 import com.example.pocketnotev20.ui.common.ProfessionalPageScaffold
 import com.example.pocketnotev20.viewmodel.QuestionBankViewModel
 
@@ -205,6 +212,10 @@ fun QuestionBankScreen(
 
 @Composable
 private fun QuestionCard(item: QuestionItem) {
+    val context = LocalContext.current
+    val repository = remember { FirestoreRepository() }
+    var fileError by remember(item.id, item.storagePath, item.fileUrl) { mutableStateOf("") }
+
     AppPanelCard {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -258,7 +269,65 @@ private fun QuestionCard(item: QuestionItem) {
                 modifier = Modifier.padding(vertical = 2.dp)
             )
         }
+
+        if (item.fileUrl.isNotBlank() || item.storagePath.isNotBlank()) {
+            Spacer(modifier = Modifier.height(14.dp))
+            AppSectionTitle(title = "Attachment")
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = item.uploadName.ifBlank { "Question file" },
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(modifier = Modifier.height(10.dp))
+            AppSecondaryButton(
+                text = "Open File",
+                onClick = {
+                    fileError = ""
+                    openQuestionFile(
+                        context = context,
+                        repository = repository,
+                        question = item,
+                        onFailure = { fileError = it }
+                    )
+                },
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+
+        if (fileError.isNotBlank()) {
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = fileError,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.error
+            )
+        }
     }
+}
+
+private fun openQuestionFile(
+    context: Context,
+    repository: FirestoreRepository,
+    question: QuestionItem,
+    onFailure: (String) -> Unit
+) {
+    repository.getQuestionDownloadUrl(
+        question = question,
+        onSuccess = { url ->
+            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url)).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            try {
+                context.startActivity(intent)
+            } catch (_: Exception) {
+                Toast.makeText(context, "No app found to open this file.", Toast.LENGTH_SHORT).show()
+            }
+        },
+        onFailure = { error ->
+            onFailure(error.message ?: "Unable to open question file.")
+        }
+    )
 }
 
 @Composable

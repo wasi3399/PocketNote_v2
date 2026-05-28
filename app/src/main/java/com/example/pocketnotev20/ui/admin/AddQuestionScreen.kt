@@ -1,5 +1,10 @@
 package com.example.pocketnotev20.ui.admin
 
+import android.content.Context
+import android.net.Uri
+import android.provider.OpenableColumns
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -15,6 +20,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.example.pocketnotev20.model.QuestionItem
 import com.example.pocketnotev20.repository.FirestoreRepository
@@ -28,6 +34,7 @@ import com.example.pocketnotev20.ui.common.ProfessionalPageScaffold
 fun AddQuestionScreen(
     onBackClick: () -> Unit
 ) {
+    val context = LocalContext.current
     val repository = FirestoreRepository()
     var subject by remember { mutableStateOf("") }
     var level by remember { mutableStateOf("") }
@@ -35,7 +42,26 @@ fun AddQuestionScreen(
     var session by remember { mutableStateOf("") }
     var yearInput by remember { mutableStateOf("") }
     var yearsList by remember { mutableStateOf(listOf<String>()) }
+    var selectedFileUri by remember { mutableStateOf<Uri?>(null) }
+    var selectedFileName by remember { mutableStateOf("") }
+    var selectedFileType by remember { mutableStateOf("") }
     var isLoading by remember { mutableStateOf(false) }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
+
+    val uploadLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri != null) {
+            context.contentResolver.takePersistableUriPermission(
+                uri,
+                android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION
+            )
+            selectedFileUri = uri
+            selectedFileName = getQuestionUploadDisplayName(context, uri)
+            selectedFileType = context.contentResolver.getType(uri).orEmpty()
+            errorMessage = null
+        }
+    }
 
     ProfessionalPageScaffold(
         title = "Add Question Bank",
@@ -71,6 +97,45 @@ fun AddQuestionScreen(
 
         Spacer(modifier = Modifier.height(16.dp))
 
+        AppPanelCard {
+            AppSectionTitle(
+                title = "Question File",
+                subtitle = "Upload a PDF or image for this question entry."
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+            AppSecondaryButton(
+                text = if (selectedFileName.isBlank()) "Upload PDF/Image" else "Change File",
+                onClick = {
+                    uploadLauncher.launch(
+                        arrayOf(
+                            "application/pdf",
+                            "image/*"
+                        )
+                    )
+                },
+                modifier = Modifier.fillMaxWidth(),
+                enabled = !isLoading
+            )
+            if (selectedFileName.isNotBlank()) {
+                Spacer(modifier = Modifier.height(12.dp))
+                Text(
+                    text = "Selected: $selectedFileName",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            if (!errorMessage.isNullOrBlank()) {
+                Spacer(modifier = Modifier.height(12.dp))
+                Text(
+                    text = errorMessage.orEmpty(),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.error
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
         if (isLoading) {
             AppPanelCard {
                 CircularProgressIndicator()
@@ -84,11 +149,30 @@ fun AddQuestionScreen(
             text = "Submit for Review",
             onClick = {
                 isLoading = true
-                val question = QuestionItem(subject = subject, level = level, term = term, session = session, years = yearsList)
-                repository.submitQuestionForReview(question, onSuccess = {
+                errorMessage = null
+                val question = QuestionItem(
+                    subject = subject,
+                    level = level,
+                    term = term,
+                    session = session,
+                    years = yearsList,
+                    uploadName = selectedFileName,
+                    fileType = selectedFileType
+                )
+                val fileUri = selectedFileUri
+                val onSuccess: (String) -> Unit = {
                     isLoading = false
                     onBackClick()
-                }, onFailure = { isLoading = false })
+                }
+                val onFailure: (Exception) -> Unit = { error ->
+                    isLoading = false
+                    errorMessage = error.message ?: "Unable to submit question."
+                }
+                if (fileUri != null) {
+                    repository.submitQuestionUploadForReview(question, fileUri, onSuccess, onFailure)
+                } else {
+                    repository.submitQuestionForReview(question, onSuccess, onFailure)
+                }
             },
             modifier = Modifier.fillMaxWidth(),
             enabled = !isLoading && subject.isNotBlank() && yearsList.isNotEmpty()
@@ -98,4 +182,14 @@ fun AddQuestionScreen(
 
         AppSecondaryButton(text = "Cancel", onClick = onBackClick, modifier = Modifier.fillMaxWidth(), enabled = !isLoading)
     }
+}
+
+private fun getQuestionUploadDisplayName(context: Context, uri: Uri): String {
+    context.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
+        val nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+        if (nameIndex >= 0 && cursor.moveToFirst()) {
+            return cursor.getString(nameIndex).orEmpty().ifBlank { uri.lastPathSegment.orEmpty() }
+        }
+    }
+    return uri.lastPathSegment.orEmpty().ifBlank { "question_upload" }
 }

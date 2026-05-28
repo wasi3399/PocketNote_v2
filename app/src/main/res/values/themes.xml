@@ -2,4 +2,8 @@
 <resources>
 
     <style name="Theme.PocketNoteV20" parent="android:Theme.Material.Light.NoActionBar" />
+
+    <style name="Theme.PocketNoteV20.Splash" parent="Theme.PocketNoteV20">
+        <item name="android:windowBackground">@drawable/splash_screen</item>
+    </style>
 </resources>

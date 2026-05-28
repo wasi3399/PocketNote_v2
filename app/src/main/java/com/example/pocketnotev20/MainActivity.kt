@@ -7,6 +7,9 @@ import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -47,6 +50,7 @@ class MainActivity : ComponentActivity() {
     private val repository = FirestoreRepository()
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        setTheme(R.style.Theme_PocketNoteV20)
         super.onCreate(savedInstanceState)
         repository.seedAllData(
             onSuccess = {
@@ -68,6 +72,7 @@ class MainActivity : ComponentActivity() {
 fun PocketNoteApp() {
     var currentScreen by remember { mutableStateOf("login") }
     var currentRole by remember { mutableStateOf("user") }
+    var showLogoutDialog by remember { mutableStateOf(false) }
     
     val userSubScreens = remember {
         setOf(
@@ -126,8 +131,7 @@ fun PocketNoteApp() {
                 onGpaClick = { currentScreen = "gpa_calculator" },
                 onProfileClick = { currentScreen = "profile" },
                 onLogoutClick = {
-                    currentRole = "user"
-                    currentScreen = "login"
+                    showLogoutDialog = true
                 },
                 onExamCountdownClick = { currentScreen = "important_dates" },
                 onCtMarksClick = { currentScreen = "ct_marks" }
@@ -159,8 +163,7 @@ fun PocketNoteApp() {
                 onAddNoteClick = { currentScreen = "add_note" },
                 onAddCtSlotClick = { currentScreen = "add_ct_slot" },
                 onLogoutClick = {
-                    currentRole = "user"
-                    currentScreen = "login"
+                    showLogoutDialog = true
                 }
             )
 
@@ -220,8 +223,7 @@ fun PocketNoteApp() {
                 onBackClick = { currentScreen = "dashboard" },
                 reserveBottomBarSpace = true,
                 onLogoutClick = {
-                    currentRole = "user"
-                    currentScreen = "login"
+                    showLogoutDialog = true
                 }
             )
 
@@ -229,8 +231,7 @@ fun PocketNoteApp() {
                 onBackClick = { currentScreen = "admin_dashboard" },
                 reserveBottomBarSpace = true,
                 onLogoutClick = {
-                    currentRole = "user"
-                    currentScreen = "login"
+                    showLogoutDialog = true
                 }
             )
 
@@ -275,6 +276,32 @@ fun PocketNoteApp() {
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .padding(horizontal = 18.dp, vertical = 18.dp)
+            )
+        }
+
+        if (showLogoutDialog) {
+            AlertDialog(
+                onDismissRequest = { showLogoutDialog = false },
+                title = { Text(text = "Logout Confirmation") },
+                text = { Text(text = "Are you sure you want to logout?") },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            showLogoutDialog = false
+                            currentRole = "user"
+                            currentScreen = "login"
+                        }
+                    ) {
+                        Text("Logout")
+                    }
+                },
+                dismissButton = {
+                    TextButton(
+                        onClick = { showLogoutDialog = false }
+                    ) {
+                        Text("Cancel")
+                    }
+                }
             )
         }
     }

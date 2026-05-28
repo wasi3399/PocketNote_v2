@@ -474,12 +474,53 @@ class FirestoreRepository {
                 "level" to question.level,
                 "term" to question.term,
                 "session" to question.session,
-                "years" to question.years
+                "years" to question.years,
+                "uploadName" to question.uploadName,
+                "fileUrl" to question.fileUrl,
+                "storagePath" to question.storagePath,
+                "fileType" to question.fileType
             ),
             onApproveDirectly = { saveQuestionDirect(question, { onSuccess("Question data published successfully.") }, onFailure) },
             onQueued = onSuccess,
             onFailure = onFailure
         )
+    }
+
+    fun submitQuestionUploadForReview(
+        question: QuestionItem,
+        fileUri: Uri,
+        onSuccess: (String) -> Unit,
+        onFailure: (Exception) -> Unit
+    ) {
+        val uid = auth.currentUser?.uid.orEmpty()
+        if (uid.isBlank()) {
+            onFailure(Exception("No signed-in user found."))
+            return
+        }
+
+        val safeName = question.uploadName.ifBlank { "question_upload" }
+            .replace(Regex("[^A-Za-z0-9._-]"), "_")
+        val fileId = "${UUID.randomUUID()}_$safeName"
+        val ref = storage.reference.child("question_uploads/$uid/$fileId")
+
+        ref.putFile(fileUri)
+            .addOnSuccessListener {
+                val questionWithStoragePath = question.copy(storagePath = ref.path)
+                ref.downloadUrl.addOnSuccessListener { downloadUri ->
+                    submitQuestionForReview(
+                        question = questionWithStoragePath.copy(fileUrl = downloadUri.toString()),
+                        onSuccess = onSuccess,
+                        onFailure = onFailure
+                    )
+                }.addOnFailureListener {
+                    submitQuestionForReview(
+                        question = questionWithStoragePath,
+                        onSuccess = onSuccess,
+                        onFailure = onFailure
+                    )
+                }
+            }
+            .addOnFailureListener { onFailure(it) }
     }
 
     fun submitRoutineForReview(
@@ -574,6 +615,27 @@ class FirestoreRepository {
         val storagePath = routine.storagePath
         if (storagePath.isBlank()) {
             onFailure(Exception("Routine file path is missing."))
+            return
+        }
+
+        storage.reference.child(storagePath).downloadUrl
+            .addOnSuccessListener { onSuccess(it.toString()) }
+            .addOnFailureListener { onFailure(it) }
+    }
+
+    fun getQuestionDownloadUrl(
+        question: QuestionItem,
+        onSuccess: (String) -> Unit,
+        onFailure: (Exception) -> Unit
+    ) {
+        if (question.fileUrl.isNotBlank()) {
+            onSuccess(question.fileUrl)
+            return
+        }
+
+        val storagePath = question.storagePath
+        if (storagePath.isBlank()) {
+            onFailure(Exception("Question file path is missing."))
             return
         }
 
@@ -782,7 +844,11 @@ class FirestoreRepository {
                     level = payload["level"]?.toString().orEmpty(),
                     term = payload["term"]?.toString().orEmpty(),
                     session = payload["session"]?.toString().orEmpty(),
-                    years = (payload["years"] as? List<*>)?.map { it.toString() } ?: emptyList()
+                    years = (payload["years"] as? List<*>)?.map { it.toString() } ?: emptyList(),
+                    uploadName = payload["uploadName"]?.toString().orEmpty(),
+                    fileUrl = payload["fileUrl"]?.toString().orEmpty(),
+                    storagePath = payload["storagePath"]?.toString().orEmpty(),
+                    fileType = payload["fileType"]?.toString().orEmpty()
                 ),
                 onSuccess = onSuccess,
                 onFailure = onFailure
